@@ -324,11 +324,19 @@ qmi()
 
 gobinet()
 {
+	#获取制造商
+	local manufacturer=$(uci -q get modem.modem${modem_no}.manufacturer)
+	
 	#拨号
-	procd_open_instance
-	procd_set_param command sh ${SCRIPT_DIR}/modem_network_task.sh "${id}" "${modem_no}" "gobinet"
-	procd_set_param respawn
-	procd_close_instance
+	case $manufacturer in
+		"quectel") qmi ;;
+		*)
+			procd_open_instance
+			procd_set_param command sh ${SCRIPT_DIR}/modem_network_task.sh "${id}" "${modem_no}" "gobinet"
+			procd_set_param respawn
+			procd_close_instance
+		;;
+	esac
 }
 
 ecm()
@@ -399,11 +407,11 @@ stop_gobinet()
 	#停止拨号
 	local at_command
 	if [ "$manufacturer" = "quectel" ]; then
-		at_command='ATI'
+		stop_qmi
 	elif [ "$manufacturer" = "fibocom" ]; then
 		at_command='AT$QCRMCALL=0,1'
 	elif [ "$manufacturer" = "meig" ]; then
-		at_command='ATI'
+		at_command="AT$QCRMCALL=0,1,${define_connect},2,1"
 	else
 		at_command='ATI'
 	fi
@@ -431,7 +439,7 @@ stop_ecm()
 			at_command="AT+GTRNDIS=0,${define_connect}"
 		fi
 	elif [ "$manufacturer" = "meig" ]; then
-		at_command="AT$QCRMCALL=0,1,${define_connect},2,1"
+		at_command="AT^NDISDUP=${define_connect},0"
 	else
 		at_command='ATI'
 	fi
@@ -620,12 +628,21 @@ dial()
 	[ -z "${modem_no}" ] && return 0
 	
 	#获取模组的拨号模式
+	local time=0
 	local mode
-	while true; do
+	while [ $time -lt 10 ]; do
 		mode=$(get_mode ${modem_no})
 		[ -n "$mode" ] && [ "$mode" != "unknown" ] && break
 		sleep 5s
+		time=$((time+1))
     done
+
+	#获取不到拨号模式
+	[ -z "$mode" ] || [ "$mode" = "unknown" ] && {
+		uci set modem.$1.enable=0
+		uci commit modem
+		return 0
+	}
 
 	#查看该移动网络是否已经有拨号配置在运行
 	mkdir -m 0755 -p "${MODEM_RUNDIR}"
@@ -636,7 +653,7 @@ dial()
 		#获取网络接口
 		local network_interface=$(uci -q get modem.modem${modem_no}.network_interface)
 		#设置网络接口
-		set_interface "${modem_no}" "$network_interface"
+		set_interface "${modem_no}" "${network_interface}"
 	else
 		local config_id=$(awk -v network="${network}" -F',' '!/^#/ && $0 ~ network { print $2 }' "${MODEM_RUN_CONFIG}")
 		#该移动网络已存在，且已有其他拨号配置在运行
@@ -697,17 +714,10 @@ manual_set_modem_config()
 
 	#获取物理路径
 	local physical_path=$(m_get_device_physical_path ${network_path})
-
-	#获取模组数量
+	
+	#获取当前模组数量（下面新增配置会导致多一个，这里需要减掉一个）
 	local modem_number=$(uci -q get modem.@global[0].modem_number)
-	#模组配置是否存在
-	for i in $(seq 0 $((modem_number-1))); do
-		local modem_network=$(uci -q get modem.modem${i}.network)
-		if [ "$modem_network" = "$network" ]; then
-			# 配置已存在，退出
-			return
-		fi
-	done
+	uci set modem.@global[0].modem_number=$((modem_number-1))
 
 	#设置模组硬件配置
 	m_set_modem_hardware_config "${physical_path}"

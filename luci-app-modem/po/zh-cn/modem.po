@@ -604,11 +604,8 @@ msgstr "插件版本"
 msgid "Dial Tool Info"
 msgstr "拨号工具信息"
 
-msgid "quectel-CM Version"
-msgstr "quectel-CM 版本"
-
-msgid "modemmanager Version"
-msgstr "modemmanager 版本"
+msgid "Version"
+msgstr "版本"
 
 msgid "Not installed"
 msgstr "未安装"
@@ -645,3 +642,12 @@ msgstr "通用"
 
 msgid "Private"
 msgstr "私有"
+
+msgid "Private (Quectel)"
+msgstr "私有（移远）"
+
+msgid "Private (Fibocom)"
+msgstr "私有（广和通）"
+
+msgid "Private (Meig)"
+msgstr "私有（美格）"

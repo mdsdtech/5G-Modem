@@ -101,12 +101,13 @@ meig_get_mode()
     case "$platform" in
         "qualcomm")
             case "$mode_num" in
-                "1") mode="qmi" ;; #-
+                "1") mode="qmi" ;;
                 # "1") mode="gobinet" ;;
                 "2") mode="ecm" ;;
                 "7") mode="mbim" ;;
                 "3") mode="rndis" ;;
                 "2") mode="ncm" ;;
+                "8") mode="unknown" ;;
                 *) mode="$mode_num" ;;
             esac
         ;;
@@ -275,6 +276,8 @@ meig_get_temperature()
     local temperature
 	if [ -n "$response" ]; then
 		temperature="${response}$(printf "\xc2\xb0")C"
+    else
+        temperature="NaN $(printf "\xc2\xb0")C"
 	fi
 
     echo "${temperature}"
